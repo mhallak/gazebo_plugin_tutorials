@@ -1,3 +1,7 @@
+More at: 
+http://gazebosim.org/tutorials?tut=plugins_model&cat=write_plugin
+
+
 Compiling Plugin
 ===============
 Add needed lines in CMakeLists.txt; 
@@ -10,8 +14,8 @@ for example:
 	  link_directories(${GAZEBO_LIBRARY_DIRS})
 	  list(APPEND CMAKE_CXX_FLAGS "${GAZEBO_CXX_FLAGS}")
 
-	  add_library(hello_world SHARED hello_world.cc)
-	  target_link_libraries(hello_world ${GAZEBO_LIBRARIES})
+	  add_library(model_push SHARED hello_world.cc)
+	  target_link_libraries(model_push ${GAZEBO_LIBRARIES})
 
 For gazebo6, add:
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GAZEBO_CXX_FLAGS}")
@@ -27,11 +31,13 @@ Compile:
 
 Source this.env
 
-Using Plugin: see hello.world file
+Using Plugin: see model_push.world file
 
 Running:
 
-      gzserver ~/gazebo_plugin_tutorial/hello.world --verbose
+      cd ~/gazebo_plugin_tutorial/model_push
+      gzserver -u model_push.world
+      somewhere else run gzclient
 
 Notes
 ============

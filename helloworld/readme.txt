@@ -1,3 +1,8 @@
+More:
+http://gazebosim.org/tutorials/?tut=plugins_hello_world
+
+============
+
 Compiling Plugin
 ===============
 Add needed lines in CMakeLists.txt; 
@@ -18,8 +23,8 @@ For gazebo6, add:
 
 Create and go to build directory:
 
-	$ mkdir ~/gazebo_plugin_tutorial/build
-	$ cd ~/gazebo_plugin_tutorial/build
+	$ mkdir ~/gazebo_plugin_tutorial/hello_world/build
+	$ cd ~/gazebo_plugin_tutorial/hello_world/build
 
 Compile:
 	$ cmake ../
@@ -31,7 +36,7 @@ Using Plugin: see hello.world file
 
 Running:
 
-      gzserver ~/gazebo_plugin_tutorial/hello.world --verbose
+      gzserver ~/gazebo_plugin_tutorial/hello_world/hello.world --verbose
 
 Notes
 ============
