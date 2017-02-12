@@ -1,7 +1,3 @@
-More:
-http://gazebosim.org/tutorials/?tut=plugins_hello_world
-
-============
 
 Compiling Plugin
 ===============
@@ -15,16 +11,16 @@ for example:
 	  link_directories(${GAZEBO_LIBRARY_DIRS})
 	  list(APPEND CMAKE_CXX_FLAGS "${GAZEBO_CXX_FLAGS}")
 
-	  add_library(hello_world SHARED hello_world.cc)
-	  target_link_libraries(hello_world ${GAZEBO_LIBRARIES})
+	  add_library(model_push SHARED hello_world.cc)
+	  target_link_libraries(model_push ${GAZEBO_LIBRARIES})
 
 For gazebo6, add:
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GAZEBO_CXX_FLAGS}")
 
 Create and go to build directory:
 
-	$ mkdir ~/gazebo_plugin_tutorial/hello_world/build
-	$ cd ~/gazebo_plugin_tutorial/hello_world/build
+	$ mkdir ~/gazebo5-camera/build
+	$ cd ~/gazebo5-camera/build
 
 Compile:
 	$ cmake ../
@@ -32,13 +28,21 @@ Compile:
 
 Source this.env
 
-Using Plugin: see hello.world file
+Using Plugin: see camera.world file
 
 Running:
+      cd ~/gazebo_plugin_tutorial/gazebo5-camera
+1. 
+      gazebo camera.world
+2.
+      gzserver -u camera.world
+      somewhere else run gzclient
+        (will print what images are kept)
+3.    
+      roslaunch camera_world.launch
 
-      gzserver ~/gazebo_plugin_tutorial/helloworld/hello.world --verbose
-
-Notes
+=======================================================================
+Notes about plugins
 ============
 1. The name of the plugin mentioned in the world file is not important:
       <plugin name="model_push" filename="libmodel_push.so"/>

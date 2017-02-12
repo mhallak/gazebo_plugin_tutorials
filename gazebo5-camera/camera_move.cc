@@ -28,17 +28,11 @@ namespace gazebo
     {
       // Get a pointer to the model
       this->model = _model;
-      this->sdf = _sdf;
+
       // Listen to the update event. This event is broadcast every
       // simulation iteration.
       this->updateConnection = event::Events::ConnectWorldUpdateBegin(
           boost::bind(&CameraMove::OnUpdate, this));
-      const char *tmp;
-      //tmp = (char *)malloc(1000);
-      tmp = this->sdf->GetDescription().c_str();
-      //strcpy(tmp, (char *)&this->sdf->GetDescription());
-
-     printf("Michele Loading ... %s\n",tmp);
     }
 
     // Called by the world update start event
@@ -58,8 +52,6 @@ namespace gazebo
 
     // Pointer to the update event connection
     private: event::ConnectionPtr updateConnection;
-
-    private: sdf::ElementPtr  sdf;
   };
 
   // Register this plugin with the simulator
