@@ -23,13 +23,26 @@
 #include <sys/shm.h>
 #include <stdio.h>
 
-static key_t key[3];
+/** Semaphores  **/
 
+#include <fcntl.h>
+#include <sys/sem.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/wait.h>
+#include <sys/types.h>
+#include <errno.h>
 
-static int fd[2];
+#include "common.h"
+
 #define SHMSZ     1000000 //921600
 int shmid[3];
 void *shmvoid[3];
+static key_t key[3];
+
+int   sem_id[3];
+struct sembuf sop[3];
+
 namespace gazebo
 {
   class CameraDump : public CameraPlugin
@@ -51,7 +64,7 @@ namespace gazebo
 
       CameraPlugin::Load(_parent, _sdf);
       gzmsg << "Michele Loading after CameraPlugin Load...\n";
-      pipe(fd);
+
       //Create shared memory segment
       key[0] = 8400;
       key[1] = 8401;
@@ -101,7 +114,7 @@ namespace gazebo
               << "] as [" << tmp << "]\n";
         this->saveCount++;
       }
-      else saveCount=0;
+      else this->saveCount=0;
     }
     private: int saveCount;
   };
