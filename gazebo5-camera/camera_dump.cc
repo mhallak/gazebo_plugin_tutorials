@@ -17,32 +17,29 @@
 #include "gazebo/gazebo.hh"
 #include "gazebo/plugins/CameraPlugin.hh"
 
-/** Shared Memory **/
+/** Shared Memory and Semaphores**/
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <stdio.h>
 
 /** Semaphores  **/
-
+#include <semaphore.h>
+#include <sys/stat.h>
 #include <fcntl.h>
-#include <sys/sem.h>
-#include <unistd.h>
-#include <string.h>
-#include <sys/wait.h>
-#include <sys/types.h>
-#include <errno.h>
 
-#include "common.h"
+#include <errno.h>
 
 #define SHMSZ     1000000 //921600
 int shmid[3];
 void *shmvoid[3];
 static key_t key[3];
 
-int   sem_id[3];
-struct sembuf sop[3];
+char SEM_NAME0[]= "sem0";
+char SEM_NAME1[]= "sem1";
+char SEM_NAME2[]= "sem2";
 
+sem_t *mutex1, *mutex2, *mutex0;
 namespace gazebo
 {
   class CameraDump : public CameraPlugin
@@ -52,19 +49,35 @@ namespace gazebo
     public: void Load(sensors::SensorPtr _parent, sdf::ElementPtr _sdf)
     {
       // Don't forget to load the camera plugin
-          const char *tmp;
           int i;
 
-          //tmp = (char *)malloc(1000);
-          tmp = _sdf->GetDescription().c_str();
-          //strcpy(tmp, (char *)&this->sdf->GetDescription());
-         printf("Michele Loading ... \n");
         gzmsg << "Michele Loading ...\n";
-        // printf("Michele Loading ... %s\n",tmp);
 
       CameraPlugin::Load(_parent, _sdf);
       gzmsg << "Michele Loading after CameraPlugin Load...\n";
 
+      //Create mutex 0, 1, 2
+      mutex0 = sem_open(SEM_NAME0,O_CREAT,0644,1);
+      if(mutex0 == SEM_FAILED)
+        {
+          perror("unable to create semaphore");
+          sem_unlink(SEM_NAME0);
+          exit(-1);
+        }
+      mutex1 = sem_open(SEM_NAME1,O_CREAT,0644,1);
+      if(mutex1 == SEM_FAILED)
+        {
+          perror("unable to create semaphore");
+          sem_unlink(SEM_NAME1);
+          exit(-1);
+        }
+      mutex2 = sem_open(SEM_NAME2,O_CREAT,0644,1);
+      if(mutex2 == SEM_FAILED)
+        {
+          perror("unable to create semaphore");
+          sem_unlink(SEM_NAME2);
+          exit(-1);
+        }
       //Create shared memory segment
       key[0] = 8400;
       key[1] = 8401;
@@ -100,8 +113,10 @@ namespace gazebo
         imagesize=this->parentSensor->GetCamera()->GetImageByteSize(_width, _height, format);
         if (imagesize <= SHMSZ) {
    //         shm = (char *)shmvoid;
+            sem_wait(mutex0);
             shm[this->saveCount] = (char *)shmvoid[this->saveCount];
             memcpy(shm[this->saveCount], _image, imagesize);
+            sem_post(mutex0);
            printf("Image has been copied to shared memory segment %d\n", this->saveCount);
         }
         else printf("Shared Memory Segment too small %ld\n", imagesize);
