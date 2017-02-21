@@ -27,24 +27,27 @@
 #include <semaphore.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+//And signal
+#include <csignal>
 
 #include <errno.h>
 
 #define SHMSZ     1000000 //921600
 int shmid[3];
 void *shmvoid[3];
-static key_t key[3];
+static key_t key[] = {8400,8401,8402};
 
-char SEM_NAME0[]= "sem0";
-char SEM_NAME1[]= "sem1";
-char SEM_NAME2[]= "sem2";
+const char *SEM_NAME[]= {"sem0", "sem1", "sem2" };
+sem_t *mutex[3];
 
-sem_t *mutex1, *mutex2, *mutex0;
 namespace gazebo
 {
   class CameraDump : public CameraPlugin
   {
-    public: CameraDump() : CameraPlugin(), saveCount(0) {printf("Hello CameraDump!\n");}
+    public: CameraDump() : CameraPlugin(), saveCount(0) {gzmsg<<"Hello CameraDump!\n";}
+    public: ~CameraDump() {
+          clean_all(2);
+      }
 
     public: void Load(sensors::SensorPtr _parent, sdf::ElementPtr _sdf)
     {
@@ -57,37 +60,23 @@ namespace gazebo
       gzmsg << "Michele Loading after CameraPlugin Load...\n";
 
       //Create mutex 0, 1, 2
-      mutex0 = sem_open(SEM_NAME0,O_CREAT,0644,1);
-      if(mutex0 == SEM_FAILED)
+      for (i=0;i<3;i++){
+        mutex[i] = sem_open(SEM_NAME[i],O_CREAT,0644,1);
+        if(mutex[i] == SEM_FAILED)
         {
           perror("unable to create semaphore");
-          sem_unlink(SEM_NAME0);
+          sem_unlink(SEM_NAME[i]);
           exit(-1);
         }
-      mutex1 = sem_open(SEM_NAME1,O_CREAT,0644,1);
-      if(mutex1 == SEM_FAILED)
-        {
-          perror("unable to create semaphore");
-          sem_unlink(SEM_NAME1);
-          exit(-1);
-        }
-      mutex2 = sem_open(SEM_NAME2,O_CREAT,0644,1);
-      if(mutex2 == SEM_FAILED)
-        {
-          perror("unable to create semaphore");
-          sem_unlink(SEM_NAME2);
-          exit(-1);
-        }
+      }
+
       //Create shared memory segment
-      key[0] = 8400;
-      key[1] = 8401;
-      key[2] = 8402;
       for (i=0; i<3; i++) {
         if ((shmid[i] = shmget(key[i], SHMSZ, IPC_CREAT | 0666)) < 0) {
             perror("shmget");
             // exit(1);
          }
-        else printf("Segment %d has been created <%d> ?!\n", i, shmid[i]);
+        else gzmsg << "Segment "<< i << " has been created <"<<shmid[i]<<"> ?!\n";
       /*
        * Now we attach the segment to our data space.
        */
@@ -95,8 +84,11 @@ namespace gazebo
             perror("shmat");
             //exit(1);
         }
-        printf("Segment %d has been attached <%d> ?!\n", i, shmid[i]);
+        else gzmsg << "Segment "<< i << " has been attached <"<<shmid[i]<<"> ?!\n";
        }
+
+      //signal handler
+      signal(SIGINT, clean_all);
 
     }
 
@@ -113,24 +105,40 @@ namespace gazebo
         imagesize=this->parentSensor->GetCamera()->GetImageByteSize(_width, _height, format);
         if (imagesize <= SHMSZ) {
    //         shm = (char *)shmvoid;
-            sem_wait(mutex0);
+            sem_wait(mutex[this->saveCount]);
             shm[this->saveCount] = (char *)shmvoid[this->saveCount];
             memcpy(shm[this->saveCount], _image, imagesize);
-            sem_post(mutex0);
-           printf("Image has been copied to shared memory segment %d\n", this->saveCount);
+            sem_post(mutex[this->saveCount]);
+           gzmsg<<"Image has been copied to shared memory segment " <<this->saveCount <<"\n";
         }
-        else printf("Shared Memory Segment too small %ld\n", imagesize);
+        else gzerr << "Shared Memory Segment too small " << imagesize;
       
+        /**
         snprintf(tmp, sizeof(tmp), "/tmp/%s-%02d.jpg",
                     this->parentSensor->GetCamera()->GetName().c_str(), this->saveCount);
 
         this->parentSensor->GetCamera()->SaveFrame(_image, _width, _height, _depth, _format, tmp);
         gzmsg << "Saving frame [" << this->saveCount
-              << "] as [" << tmp << "]\n";
+              << "] as [" << tmp << "]\n";**/
         this->saveCount++;
       }
       else this->saveCount=0;
     }
+    static void clean_all(int signum){
+        int i;
+        gzmsg << "ZZZ Free shared memory and semaphores signal "<<signum<<"...\n";
+        // printf("Got signal %d ==> Free shared memory and semaphores...\n", signum);
+         for (i=0;i<3;i++){
+             sem_close(mutex[i]);
+             sem_unlink(SEM_NAME[i]);
+             shmctl(shmid[i], IPC_RMID,0 );
+
+         }
+          gzmsg << "ZZZ Shared memory and semaphores freed...\n";
+          //According litterature, no need to call the destructor of CameraPlugin...
+          // The destructors are called in reverse order of construction
+    }
+
     private: int saveCount;
   };
 
