@@ -29,7 +29,7 @@
 #include <fcntl.h>
 //And signal
 #include <csignal>
-
+#include <sys/wait.h>
 #include <errno.h>
 
 #define SHMSZ     1000000 //921600
@@ -90,6 +90,17 @@ namespace gazebo
       //signal handler
       signal(SIGINT, clean_all);
 
+      if ((this->chpid = fork()) < 0){
+          perror("Could not fork, run gazebo-streamer manually");
+      }
+      else if (this->chpid==0){
+              //Child process run gazebo-streamer
+            //  execl("/home/michele/gst-rtsp-server-1.2.3/examples/run-gazebo-streamer.sh","run-gazebo-streamer.sh", (char*)0);
+              execl("/home/michele//gst-rtsp-server-1.2.3/examples/run_gazebo_streamer.sh","gazebo-streamer", (char*)0);
+              _exit(127);
+      }
+
+
     }
 
     // Update the controller
@@ -124,8 +135,28 @@ namespace gazebo
       }
       else this->saveCount=0;
     }
+
     static void clean_all(int signum){
-        int i;
+        int i, status, pid;
+        //Kill child
+#if 1
+        for (;;) {
+                // Remove the zombie process, and get the pid and return code
+                pid = wait(&status);
+                if (pid < 0) {
+                    if (errno == ECHILD) {
+                        printf("All children have exited\n");
+                        break;
+                    }
+                    else {
+                        perror("Could not wait");
+                    }
+                }
+                else {
+                    printf("Child %d exited with status %d\n", pid, status);
+                }
+            }
+#endif
         gzmsg << "ZZZ Free shared memory and semaphores signal "<<signum<<"...\n";
         // printf("Got signal %d ==> Free shared memory and semaphores...\n", signum);
          for (i=0;i<3;i++){
@@ -140,6 +171,7 @@ namespace gazebo
     }
 
     private: int saveCount;
+    private: int chpid;
   };
 
   // Register this plugin with the simulator
