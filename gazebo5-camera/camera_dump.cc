@@ -31,14 +31,19 @@
 #include <csignal>
 #include <sys/wait.h>
 #include <errno.h>
+#include <unistd.h>
 
 #define SHMSZ     1000000 //921600
+//Shared Memory
 int shmid[3];
 void *shmvoid[3];
 static key_t key[] = {8400,8401,8402};
-
+//Semaphores
 const char *SEM_NAME[]= {"sem0", "sem1", "sem2" };
 sem_t *mutex[3];
+//Process Management
+pid_t gazebo_streamer_pid;
+
 
 namespace gazebo
 {
@@ -89,17 +94,18 @@ namespace gazebo
 
       //signal handler
       signal(SIGINT, clean_all);
+      signal(SIGTERM, clean_all);
 
-      if ((this->chpid = fork()) < 0){
+      if ((gazebo_streamer_pid = fork()) < 0){
           perror("Could not fork, run gazebo-streamer manually");
       }
-      else if (this->chpid==0){
+      else if (gazebo_streamer_pid==0){
               //Child process run gazebo-streamer
             //  execl("/home/michele/gst-rtsp-server-1.2.3/examples/run-gazebo-streamer.sh","run-gazebo-streamer.sh", (char*)0);
-              execl("/home/michele//gst-rtsp-server-1.2.3/examples/run_gazebo_streamer.sh","gazebo-streamer", (char*)0);
+              execl("./run_gazebo_streamer.sh","gazebo-streamer", (char*)0);
               _exit(127);
       }
-
+      gzwarn << "gazebo_streamer_pid="<< gazebo_streamer_pid << "\n";
 
     }
 
@@ -120,7 +126,7 @@ namespace gazebo
             shm[this->saveCount] = (char *)shmvoid[this->saveCount];
             memcpy(shm[this->saveCount], _image, imagesize);
             sem_post(mutex[this->saveCount]);
-           gzmsg<<"Image has been copied to shared memory segment " <<this->saveCount <<"\n";
+           gzdbg<<"Image has been copied to shared memory segment " <<this->saveCount <<"\n";
         }
         else gzerr << "Shared Memory Segment too small " << imagesize;
       
@@ -138,26 +144,16 @@ namespace gazebo
 
     static void clean_all(int signum){
         int i, status, pid;
-        //Kill child
-#if 1
-        for (;;) {
-                // Remove the zombie process, and get the pid and return code
-                pid = wait(&status);
-                if (pid < 0) {
-                    if (errno == ECHILD) {
-                        printf("All children have exited\n");
-                        break;
-                    }
-                    else {
-                        perror("Could not wait");
-                    }
-                }
-                else {
-                    printf("Child %d exited with status %d\n", pid, status);
-                }
-            }
-#endif
-        gzmsg << "ZZZ Free shared memory and semaphores signal "<<signum<<"...\n";
+        pid_t prev_groupid, groupid;
+        //Kill children
+        gzwarn << "Killing children " << gazebo_streamer_pid <<" with signal "<< signum <<"\n";
+        //get process group
+        prev_groupid = getpgrp();
+        gzwarn << "Group Id " << prev_groupid <<"\n";
+       // killpg(prev_groupid, SIGTERM);
+        gzwarn << "killing gazebo_streamer_pid="<<gazebo_streamer_pid << "\n";
+        kill(gazebo_streamer_pid, SIGINT);
+        gzwarn << "ZZZ Free shared memory and semaphores signal "<<signum<<"...\n";
         // printf("Got signal %d ==> Free shared memory and semaphores...\n", signum);
          for (i=0;i<3;i++){
              sem_close(mutex[i]);
@@ -165,7 +161,7 @@ namespace gazebo
              shmctl(shmid[i], IPC_RMID,0 );
 
          }
-          gzmsg << "ZZZ Shared memory and semaphores freed...\n";
+          gzwarn << "ZZZ Shared memory and semaphores freed...\n";
           //According litterature, no need to call the destructor of CameraPlugin...
           // The destructors are called in reverse order of construction
     }
